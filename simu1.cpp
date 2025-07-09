@@ -14,26 +14,32 @@
 using namespace std;
 
 /**
- * 生徒側の選好のバリエーション？
- * ・自分の得意科目を重視してくれる学校を上位に配置する
- * 
- * 
- * 学校側の選好？
- * ・女子枠を設ける
- * ・α × GPA + β × 合計点、で降順ソート（内申点重視）
- * 
+➀
+生徒 ... 正直に偏差値が高い学校順にランキングを設定
+学校 ... 合計点数が高い生徒順にランキングを設定
+→ 1 位 100人、2 位 100 人、...（それはそうの結果）
+➁
+生徒 ... そのまま
+学校 ... 各学校について、女子枠を設ける。偏差値が高い学校ほど女子枠の人数が多いものと仮定する
+→ 男女別で幸福度を分けて観察してみる
+➂
+生徒 ... 最高得点を取った科目を重要視してくれる学校をランキングの上位に配置する。 
+学校 ... 各学校について、2 科目をピックアップしてその科目を重視するような重み付けをした枠を用意する。
+→ 単純に幸福度を観察してみる
  */
 
 /**
  * ★ M ... 学校数
  * ★ N ... 生徒数
  */
-#define M 5
+#define M 10
 #define N 1000
 #define CAPACITY (N / M) // N%M == 0 で設定した方がいいかも
 
 #define SUBJECTS 5
 #define MAX_GPA 100
+#define MALE 0 // 変えない
+#define FEMALE 1 // 変えない
 
 using Compare = function<bool(int, int)>;
 
@@ -172,21 +178,47 @@ public:
  * pref[id][i] := 生徒 id が i 番目に志望するノード
  */
 vector<vector<int>> build_student_prefer(
-    const vector<vector<int>>& school_prefs) 
+    const vector<vector<int>>& school_prefs,
+    const vector<Student>& students,
+    const vector<int>& female_quota) 
     {
     assert(school_prefs.size() == N);
 
-    vector<vector<int>> pref(N, vector<int>(N));
+    vector<vector<int>> node_prefs(N, vector<int>(N));
     for (int s = 0; s < N; s++) { // 全生徒を見ていく
         int idx = 0;
         // school：生徒 s が提出する志望校ランキング
         for (int school : school_prefs[s]) {
             for (int seat = 0; seat < CAPACITY; seat++) {
-                pref[s][idx++] = school * CAPACITY + seat; 
+                node_prefs[s][idx++] = school * CAPACITY + seat; 
             }
         }
     }
-    return pref;
+    for (int s = 0; s < N; s++) { // 全生徒を見ていく
+        bool is_female = (students[s].get_gender() == FEMALE);
+        int idx = 0;
+        
+        // school：生徒 s が提出する志望校ランキング
+        for (int school : school_prefs[s]) { 
+            int A = female_quota[school];
+
+            if (is_female) {
+                // 女子枠ノードを先に
+                for (int seat = 0; seat < A; ++seat) {
+                    node_prefs[s][idx++] = school * CAPACITY + seat;
+                }
+                // 一般枠ノードを後ろに
+                for (int seat = A; seat < CAPACITY; ++seat) {
+                    node_prefs[s][idx++] = school * CAPACITY + seat;
+                }
+            } else {
+                for (int seat = 0; seat < CAPACITY; seat++) {
+                    node_prefs[s][idx++] = school * CAPACITY + seat;
+                }
+            }
+        }
+    }
+    return node_prefs;
 }
 
 /**
@@ -238,6 +270,7 @@ int main() {
 
     vector<Student> students(N); // 各生徒の情報
     vector<School> schools; // 各学校の情報
+    vector<int> female_quota(M); // 各学校の女子枠の定員
     schools.reserve(M);
     // 全生徒について、提出する学校の志望ランキング
     // school_prefs[id][i] := id の生徒が i 番目に志望する学校
@@ -256,13 +289,7 @@ int main() {
         }
     }
 
-    /**
-     * ★ N 人の生徒の志望校ランキングの決め方
-     */
-    for (int s = 0; s < N; s++) {
-        iota(school_prefs[s].begin(), school_prefs[s].end(), 0);
-    }
-
+    // 各学校の偏差値の決定（ここは変更しない）
     vector<double> scores(M);
     for (double& v : scores) {
         v = dist_dev(rng);
@@ -270,7 +297,7 @@ int main() {
 
     sort(scores.begin(), scores.end(), greater<>());
 
-    for (double sc : scores) {
+    for (double sc : scores) { // 偏差値が高い学校ほど idx が小さい
         schools.emplace_back(sc);
     }
 
@@ -278,16 +305,61 @@ int main() {
      * ★ M 校の学校について、定員 CAPACITY に対応するノードが保持する志望生徒ランキングの決め方
      */
     for (int sch = 0; sch < M; sch++) {
-        int subject = sch % SUBJECTS;
-        Compare cmp = [&](int a, int b) {
-            int pa = students[a].get_point(subject);
-            int pb = students[b].get_point(subject);
-            if (pa != pb) {
-                return pa > pb; // 成績高い順
+        /**
+         * ➀
+         */
+        Compare cmp1 = [&](int a, int b) {
+            int suma = 0, sumb = 0;
+            for (int sub = 0; sub < SUBJECTS; sub++) {
+                suma += students[a].get_point(sub);
+                sumb += students[b].get_point(sub);
+            }
+            if (suma != sumb) {
+                return suma > sumb; // 成績高い順
             }
             return students[a].get_ID() < students[b].get_ID(); // タイブレーク
         };
-        schools[sch].divide({ {cmp, CAPACITY} }); // 全席同じ基準
+        /**
+         * ➁
+         */
+        Compare cmp2 = [&](int a, int b) {
+            int gender_a = students[a].get_gender();
+            int gender_b = students[b].get_gender();
+            if (gender_a != gender_b) { // 女子を優先
+                return gender_a > gender_b;
+            }
+            // 性別が同じなら、成績が高い生徒を優先
+            int sum_a = 0, sum_b = 0;
+            for (int sub = 0; sub < SUBJECTS; sub++) {
+                sum_a += students[a].get_point(sub);
+                sum_b += students[b].get_point(sub);
+            }
+            if (sum_a != sum_b) {
+                return sum_a > sum_b; // 成績高い順
+            }
+            return students[a].get_ID() < students[b].get_ID(); // タイブレーク（総合点も同じなら、id が小さい生徒を優先）
+        };
+
+        /**
+         * ➀
+         */
+        /* schools[sch].divide({ {cmp1, CAPACITY * rat / 100} }); */
+
+        /**
+         * ➁
+         */
+        int rat = (10 - sch) * 3; // この％だけ女子枠を取る（sch == 0 なら 30 パー、sch == 1 なら 27 パー、...）
+        int A = CAPACITY * rat / 100;
+        int B = CAPACITY - A;
+        schools[sch].divide({ {cmp2, A}, {cmp1, B} });
+        female_quota[sch] = A;
+    }
+
+    /**
+     * ★ N 人の生徒の志望校ランキングの決め方
+     */
+    for (int s = 0; s < N; s++) {
+        iota(school_prefs[s].begin(), school_prefs[s].end(), 0);
     }
 
     vector<Node> node_list; // 各学校からノードを取り出し、番号を割り当てる
@@ -297,12 +369,15 @@ int main() {
         node_list.insert(node_list.end(), v.begin(), v.end());
     }
 
-    auto node_prefs = build_student_prefer(school_prefs);
+    auto node_prefs = build_student_prefer(school_prefs, students, female_quota);
 
     vector<int> match_to_node(N, -1);
     stable_matching(node_prefs, node_list, match_to_node);
 
-    vector<int> histogram(M, 0);
+    /**
+     * ➀
+     */
+    /* vector<int> histogram(M, 0);
     for (int s = 0; s < N; ++s) {
         int node = match_to_node[s];
         int school = node / CAPACITY;
@@ -319,5 +394,36 @@ int main() {
     cout << "=== ヒストグラム（何位の学校に入れたか） ===\n";
     for (int r = 0; r < M; r++) {
         cout << r + 1 << " 位: " << histogram[r] << " 人\n";
+    } */
+
+    /**
+     * ➁
+     */
+    vector<int> male_histogram(M, 0);
+    vector<int> female_histogram(M, 0);
+
+    for (int s = 0; s < N; ++s) {
+        int node   = match_to_node[s];
+        int school = node / CAPACITY;
+
+        int rank = 0;
+        while (rank < M && school_prefs[s][rank] != school) ++rank;
+        if (rank >= M) continue;          // 念のため
+
+        if (students[s].get_gender() == 1) {   // gender==1 を「女子」と解釈
+            female_histogram[rank]++;
+        } else {
+            male_histogram[rank]++;
+        }
+    }
+
+    cout << "\n=== 男女別ヒストグラム ===\n";
+    cout << "[女子]\n";
+    for (int r = 0; r < M; ++r) {
+        cout << "  " << r + 1 << " 位: " << female_histogram[r] << " 人\n";
+    }
+    cout << "[男子]\n";
+    for (int r = 0; r < M; ++r) {
+        cout << "  " << r + 1 << " 位: " << male_histogram[r] << " 人\n";
     }
 }
