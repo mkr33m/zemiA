@@ -15,7 +15,7 @@ using namespace std;
  */
 #define M 5
 #define N 1000
-#define CAPACITY N/M // N%M == 0 で設定した方がいいかも
+#define CAPACITY (N / M) // N%M == 0 で設定した方がいいかも
 
 #define SUBJECTS 5
 #define MAX_GPA 100
