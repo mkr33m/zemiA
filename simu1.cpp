@@ -7,7 +7,22 @@
 #include <functional> // function
 #include <queue> // queue
 
+/**
+ * 全生徒が偏差値の高い学校ほど上位に並べる場合
+ */
+
 using namespace std;
+
+/**
+ * 生徒側の選好のバリエーション？
+ * ・自分の得意科目を重視してくれる学校を上位に配置する
+ * 
+ * 
+ * 学校側の選好？
+ * ・女子枠を設ける
+ * ・α × GPA + β × 合計点、で降順ソート（内申点重視）
+ * 
+ */
 
 /**
  * ★ M ... 学校数
@@ -294,7 +309,7 @@ int main() {
 
         int rank = 0;
         while (rank < M && school_prefs[s][rank] != school) {
-            rank ++;
+            rank++;
         }
         if (rank < M) {
             histogram[rank]++;
@@ -305,5 +320,4 @@ int main() {
     for (int r = 0; r < M; r++) {
         cout << r + 1 << " 位: " << histogram[r] << " 人\n";
     }
-    return 0;
 }
