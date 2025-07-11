@@ -7,10 +7,6 @@
 #include <functional> // function
 #include <queue> // queue
 
-/**
- * 全生徒が偏差値の高い学校ほど上位に並べる場合
- */
-
 using namespace std;
 
 /**
@@ -402,28 +398,29 @@ int main() {
     vector<int> male_histogram(M, 0);
     vector<int> female_histogram(M, 0);
 
-    for (int s = 0; s < N; ++s) {
-        int node   = match_to_node[s];
+    for (int s = 0; s < N; s++) {
+        int node = match_to_node[s];
         int school = node / CAPACITY;
 
         int rank = 0;
-        while (rank < M && school_prefs[s][rank] != school) ++rank;
-        if (rank >= M) continue;          // 念のため
+        while (rank < M && school_prefs[s][rank] != school) {
+            rank++;
+        }
 
-        if (students[s].get_gender() == 1) {   // gender==1 を「女子」と解釈
+        if (students[s].get_gender() == 1) { // 女子
             female_histogram[rank]++;
-        } else {
+        } else { // 男子
             male_histogram[rank]++;
         }
     }
 
     cout << "\n=== 男女別ヒストグラム ===\n";
     cout << "[女子]\n";
-    for (int r = 0; r < M; ++r) {
+    for (int r = 0; r < M; r++) {
         cout << "  " << r + 1 << " 位: " << female_histogram[r] << " 人\n";
     }
     cout << "[男子]\n";
-    for (int r = 0; r < M; ++r) {
+    for (int r = 0; r < M; r++) {
         cout << "  " << r + 1 << " 位: " << male_histogram[r] << " 人\n";
     }
 }
