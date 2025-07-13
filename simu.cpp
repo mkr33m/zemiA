@@ -13,8 +13,8 @@ using namespace std;
  * ★ M ... 学校数
  * ★ N ... 生徒数
  */
-#define M 10
-#define N 300
+#define M 2
+#define N 20
 #define CAPACITY (N / M) // N%M == 0 で設定した方がいいかも
 
 #define RATIO 20 // 上位・下位何パーセントが 2 校だけ上げる/下げるか
@@ -180,7 +180,8 @@ void stable_matching(
 
 int main() {
 
-    uniform_int_distribution<int> score_d(0, 100);
+    uniform_int_distribution<int> GPA_d(0, 100);
+    uniform_int_distribution<int> score_d(0, 100000);
     uniform_int_distribution<int> gender_d(0, 1);
     vector<Student> students(N); // 各生徒の情報
     vector<School> schools(M); // 各学校の情報
@@ -193,7 +194,7 @@ int main() {
     for (int i = 0; i < N; i++) {
         students[i].set_ID(i);
         students[i].set_gender(gender_d(rng));
-        students[i].set_GPA(score_d(rng));
+        students[i].set_GPA(GPA_d(rng));
         for (int sub = 0; sub < SUBJECTS; sub++) {
             students[i].set_point(sub, score_d(rng));
         }
@@ -236,6 +237,11 @@ int main() {
             int shift = (pos_in_group < TOP_THR ? 2 : 1);
             if (g >= shift) {
                 rot = +shift;
+            } else if (shift == 2) {
+                shift--;
+                if (g >= shift) {
+                    rot = +shift;
+                }
             }
         } else {
             int shift = (pos_in_group >= BOTTOM_THR ? 1 : 0);

@@ -9,13 +9,13 @@ CAPACITY = N // M
 SUBJECTS = 5
 RATIO = 20
 
-SEED = 542
+SEED = 5433
 
 rng = random.Random(SEED)
 np.random.seed(SEED)
 
 # ---------------- generate students ----------------
-points = np.random.randint(0, 101, size=(N, SUBJECTS))
+points = np.random.randint(0, 100001, size=(N, SUBJECTS))
 total_scores = points.sum(axis=1)
 order = np.argsort(-total_scores)           # students sorted high → low
 rank_index = np.empty(N, dtype=int)         # rank_index[student_id] = rank (0 best)
@@ -41,7 +41,11 @@ for rank, sid in enumerate(order):
     if challenge:
         shift = 2 if pos_in_group < TOP_THR else 1
         if g >= shift:
-            rot = +shift
+            rot = shift
+        elif shift == 2:
+            shift -= 1
+            if g >= shift:
+                rot = shift
     else:
         shift = 1 if pos_in_group >= BOTTOM_THR else 0
         if g + shift < M:
@@ -186,17 +190,22 @@ for k, ax in enumerate(axes):
     # overlay thick red / blue highlights  (identical on both graphs)
     for s in better:
         sch = (match_stable[s] // CAPACITY) if k == 0 else school_of_seq[s]
-        ax.plot([0, 1], [y_student[s], y_school[sch]], color="red",  linewidth=2.5)
+        ax.plot([0, 1], [y_student[s], y_school[sch]], color="red",  linewidth=1.3)
     for s in worse:
         sch = (match_stable[s] // CAPACITY) if k == 0 else school_of_seq[s]
-        ax.plot([0, 1], [y_student[s], y_school[sch]], color="blue", linewidth=2.5)
+        ax.plot([0, 1], [y_student[s], y_school[sch]], color="blue", linewidth=1.3)
 
     # draw nodes
-    ax.scatter(np.zeros(N), y_student, s=8, color='black')     # students
+    student_colors = group_colors[group_of]        # shape = (N, 4) RGBA
+    ax.scatter(np.zeros(N), y_student,
+            s=18,                 # ドットを少し大きめにするとなお見やすい
+            color=student_colors, # 各生徒に対応した色を渡す
+            edgecolors='black',   # 枠線で視認性を確保（無くても可）
+            linewidths=0.3)
     ax.scatter(np.ones(M), y_school, s=60, color='black')      # schools
 
 # すでに作成済みの better / worse / same リストから人数を集計して表示
-print("学校ランク比較（Sequence 法 vs. 安定マッチング）")
+print("学校ランク比較（安定マッチング vs sequence 法）")
 print(f"より良い学校に入学できた生徒: {len(better)} 名")
 print(f"より悪い学校に入学した生徒: {len(worse)} 名")
 print(f"同じ学校に入学した生徒  : {len(same)} 名")
